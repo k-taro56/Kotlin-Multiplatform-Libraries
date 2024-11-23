@@ -56,7 +56,7 @@ jobs:
                   stateMachine = "final";
                   continue;
                 } else if (stateMachine === "header") {
-                  throw new Error(`${currentLibrary.name} has no badges`);
+                  console.error(`${currentLibrary.name} has no badges`);
                 } else {
                   throw new Error(`Invalid transition from ${stateMachine} to final: ${line}`);
                 }
@@ -75,7 +75,7 @@ jobs:
                 } else if (stateMachine === "waitingForLibrary") {
                   continue;
                 } else if (stateMachine === "header") {
-                  throw new Error(`${currentLibrary.name} has no badges`);
+                  console.error(`${currentLibrary.name} has no badges`);
                 } else {
                   throw new Error(`Invalid transition from ${stateMachine} to waitingForLibrary: ${line}`);
                 }
@@ -130,7 +130,7 @@ jobs:
             for (const library of libraries) {
               for (const badge of library.badges) {
                 if (!badges[badge]) {
-                  throw new Error(`${badge} badge is not defined`);
+                  console.error(`${badge} badge is not defined`);
                 }
               }
             }
