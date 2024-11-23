@@ -99,10 +99,10 @@ jobs:
                 }
               }
 
-              const [badgeName] = line.match(/^!\[badge\]\[badge-(.+)\]$/)?.slice(1) ?? [];
-              if (badgeName) {
+              const [badge] = line.match(/^!\[badge\]\[badge-(.+)\]$/)?.slice(1) ?? [];
+              if (badge) {
                 if (currentLibrary) {
-                  currentLibrary.badges = [...(currentLibrary.badges ?? []), badgeName];
+                  currentLibrary.badges = [...(currentLibrary.badges ?? []), badge];
                 }
 
                 if (stateMachine === "header") {
