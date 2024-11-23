@@ -1,0 +1,136 @@
+name: Validate README.md
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const content = fs.readFileSync('README.md', 'utf8');
+            const lines = content.split('\n');
+            const libraries = [];
+            const badges = {};
+
+            let stateMachine = "init";
+            let currentLibrary = null;
+
+            for (const line of lines) {
+              const [badgeName, badgeLink] = line.match(/^\[badge-(.+)\]:\ (.+)$/)?.slice(1) ?? [];
+              if (badgeName && badgeLink) {
+                badges[badgeName] = badgeLink;
+                continue;
+              }
+
+              if (stateMachine === "final") {
+                continue;
+              }
+
+              if (line.startsWith('## Libraries')) {
+                if (stateMachine === "init") {
+                  stateMachine = "waitingForLibrary";
+                  continue;
+                } else {
+                  throw new Error(`Invalid transition from init to waitingForLibrary: ${line}`);
+                }
+              }
+
+              if (stateMachine === "init") {
+                continue;
+              }
+
+              if (line.startsWith('## ')) {
+                if (currentLibrary) {
+                  libraries.push(currentLibrary);
+                }
+
+                if (stateMachine === "waitingForLibrary") {
+                  stateMachine = "final";
+                  continue;
+                } else if (stateMachine === "header") {
+                  throw new Error(`${currentLibrary.name} has no badges`);
+                } else {
+                  throw new Error(`Invalid transition from ${stateMachine} to final: ${line}`);
+                }
+
+                currentLibrary = null;
+              }
+
+              if (line === "") {
+                if (currentLibrary) {
+                  libraries.push(currentLibrary);
+                }
+                
+                if (stateMachine === "badges") {
+                  stateMachine = "waitingForLibrary";
+                  continue;
+                } else if (stateMachine === "waitingForLibrary") {
+                  continue;
+                } else if (stateMachine === "header") {
+                  throw new Error(`${currentLibrary.name} has no badges`);
+                } else {
+                  throw new Error(`Invalid transition from ${stateMachine} to waitingForLibrary: ${line}`);
+                }
+
+                currentLibrary = null;
+              }
+
+              const [name, url, description] = line.match(/^\*\ \[([^\]]+)\]\(([^)]+)\)\ -\ (.*)$/)?.slice(1) ?? []; 
+              if (name && url) {
+                if (description === "") {
+                  throw new Error(`${name} has no description`);
+                }
+
+                currentLibrary = { name, url, description };
+
+                if (stateMachine === "waitingForLibrary") {
+                  stateMachine = "header";
+                  continue;
+                } else {
+                  throw new Error(`Invalid transition from waitingForLibrary to header: ${line}`);
+                }
+              }
+
+              const [badgeName] = line.match(/^!\[badge\]\[badge-(.+)\]$/)?.slice(1) ?? [];
+              if (badgeName) {
+                if (currentLibrary) {
+                  currentLibrary.badges = [...(currentLibrary.badges ?? []), badgeName];
+                }
+
+                if (stateMachine === "header") {
+                  stateMachine = "badges";
+                  continue;
+                } else if (stateMachine === "badges") {
+                  continue;
+                } else {
+                  throw new Error(`Invalid transition from ${stateMachine} to badges: ${line}`);
+                }
+              }
+            }
+
+            if (stateMachine !== "final") {
+              throw new Error(`Invalid final state: ${stateMachine}`);
+            }
+
+            if (libraries.length === 0) {
+              throw new Error("No libraries found");
+            }
+
+            console.log(libraries);
+            console.log(badges);
+
+            for (const library of libraries) {
+              for (const badge of library.badges) {
+                if (!badges[badge]) {
+                  throw new Error(`${badge} badge is not defined`);
+                }
+              }
+            }
